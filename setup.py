@@ -4,7 +4,7 @@ Apply MESMER segmentation to NanoString SMI CellComposition images
 from setuptools import find_packages, setup
 from distutils.core import setup, Extension
 
-dependencies = ['click', 'Numpy', 'scikit-image', 'matplotlib',  'deepcell', 'PyYAML']
+dependencies = ['click', 'numpy<1.20.0', 'scikit-image<0.19.0', 'matplotlib',  'deepcell', 'PyYAML']
  
 setup(
     name='mesmer_segment',
@@ -16,12 +16,14 @@ setup(
     description='apply mesmer segmentation to SMI CellComposite images',
     long_description=__doc__,
     packages=find_packages(exclude=['tests']),
+    include_package_data=True,
+    package_data={},        ## Point to extra package data
     zip_safe=False,
     platforms='any',
     install_requires=dependencies,
     entry_points={
         'console_scripts': [
-            'mesmer_segment = mesmer_segment.mesmer_segment:main',
+            'mesmer_segment = mesmer_segment.cli:main',
         ],
     },
     classifiers=[

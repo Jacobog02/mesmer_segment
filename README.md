@@ -21,8 +21,8 @@ If you are interested in modifying this package and rerunning pipelines live you
 
 
 ```
-python3 -m memsmer_env /path/to/env ## make the env
-source /path/to/env/bin/activate ## Spark up the env
+python3 -m venv /path/to/mesmer_env ## make the env
+source /path/to/mesmer_env/bin/activate ## Spark up the env
 
 cd /path/to/mesmer ## Go to the github repo locally
 

@@ -2,10 +2,11 @@
 import click ## Pretty Commandline
 import glob ## Directory Parsing
 import os ## To check files, directories
-from mesmer_helper import * ## import all my functions to do the things
 from skimage import io, color ## to make interpretable plot of segmentation
 from matplotlib import pyplot as plt ## to show plots not needed in final
 import numpy as np ## Image processing
+from pkg_resources import get_distribution
+import pkg_resources
 
 ## Function checks directory structure, quits if it is not there, If it is true then return all jpg images in /CellComposite
 def check_smi_dirs(path):
