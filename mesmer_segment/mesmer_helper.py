@@ -52,7 +52,7 @@ def vis_fov(an_fov,wd,mesm_segs):
     default_im = io.imread(overlay_path)
     
     ## Composite path (Note I could use the path parsed before but I just want to pass the two above. 
-    comp_path = "{}/CellOverlay/CellOverlay_{}.jpg".format(wd,an_fov)
+    comp_path = "{}/CellComposite/CellComposite_{}.jpg".format(wd,an_fov)
     comp_fov = io.imread(comp_path) ## read in input jpeg with all its beautiful channels
 
     ## Make only Green Blue Image for segmentation result plotting :) 
@@ -64,7 +64,7 @@ def vis_fov(an_fov,wd,mesm_segs):
     
     ## Split Segmentation
     cell_seg = mesm_segs[:, :, (0)] ## Whole Cell
-    nuc_seg = mesm_segs[:, :, (1)] ## Neuclear
+    nuc_seg = mesm_segs[:, :, (1)] ## Nuclear
     
     
     plot_out = "{}/MesmerSegmentation/Mesmer_comparision_{}.jpg".format(wd,an_fov)
@@ -73,7 +73,7 @@ def vis_fov(an_fov,wd,mesm_segs):
     fig, axes = plt.subplots(1, 3, figsize=(12, 8), sharey=True)
     
     ## Plot Default from nanostring
-    axes[0].imshow(comp_fov)
+    axes[0].imshow(default_im)
     axes[0].set_title("Nanostring Default")
 
     ## Plot WHOLE CELL
