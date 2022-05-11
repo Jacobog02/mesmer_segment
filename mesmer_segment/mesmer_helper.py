@@ -2,7 +2,7 @@
 import click ## Pretty Commandline
 import glob ## Directory Parsing
 import os ## To check files, directories
-from skimage import io, color ## to make interpretable plot of segmentation
+from  skimage import io, color ## to make interpretable plot of segmentation
 from matplotlib import pyplot as plt ## to show plots not needed in final
 import numpy as np ## Image processing
 from pkg_resources import get_distribution
@@ -29,15 +29,26 @@ def check_smi_dirs(path):
     
     
 ## Accepts one jpg input and returns numpy array ready for segmentation 
-def prepare_composite(one):
+## Remember R people, python is 0 indexed so 2 == 3rd position
+def prepare_composite(one,dapi_idx = 2):
     
     one_fov = io.imread(one) ## read in input jpeg with all its beautiful channels
     
+    ## V1: use basic 2 channels... 
     ## Extract only Blue or Green
     ## I have noticed weird performance when using the opposite indexing. 
     #fov_GB = one_fov[:, :, (1, 2)] ## slice out only the second and third indexes (Green & Blue)
-    fov_GB = one_fov[:, :, (2, 1)] ## Flip indexes to see if that ruins segmentation? Expects nuclear DAPI dim1 then Membrane
+    #fov_GB = one_fov[:, :, (2, 1)] ## Flip indexes to see if that ruins segmentation? Expects nuclear DAPI dim1 then Membrane
 
+    ## V2: Accept a dapi channel index and then shove everything else into one channel and switch
+    ## I have convinced myself I will average the not dapi channels to merge. https://e2eml.school/convert_rgb_to_grayscale.html
+    dapi_channel = one_fov[:,:,(dapi_idx)]
+    squanch_idx = list(range(one_fov.shape[2])) ## should be able to accept a tiff file in theory and squish it together. 
+    membrane_channel = np.mean( one_fov[:,:,(squanch_idx)], axis=2).astype(np.uint8) ## makes a float but force into int
+    ## Stack them along the last axes.
+    fov_GB = np.dstack((dapi_channel,membrane_channel))
+    
+    
     ## Add BATCH dim on the first axes to match mesmer input.
     fov_GB = np.expand_dims(fov_GB,0)
     
