@@ -36,7 +36,7 @@ mesmer_segment --help ## Yields help screen from onfly compliation
 
 In order to both segment and generate an expression matrix, polygon vertices, etc. use the following command:
 ```
-mesmer_segment -i /brahms/hartmana/mesmer/fallopian_tube/SMI-0038_39998/ --save-npz --build-outs
+mesmer_segment -i /path/to/outs/ --save-npz --build-outs
 ```
 
 The outputs can then be loaded into Seurat (feat/imaging branch) with:
