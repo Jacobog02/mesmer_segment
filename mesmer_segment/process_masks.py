@@ -367,7 +367,7 @@ def get_polygon_vertices(fov, expanded, num_vertices=30):
             # x and y are intentionally flipped here
             series_list.append(
                 pd.Series(
-                    [fov, k, y, -x + 3638, y, -x + 3638], index=POLYGONS_FILE_COLNAMES
+                    [fov, k, y, -x + FOV_SIZE_X, y, -x + FOV_SIZE_X], index=POLYGONS_FILE_COLNAMES
                 )
             )
 
