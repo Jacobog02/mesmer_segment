@@ -2,12 +2,14 @@
 ## This script is a callable function which is input with a directory path to nanostring SMI results. Extracts the CellComposite Images for MESMER segmentation. MESMER segmentation masks are written to file for downstream use. Additional plotting functions to visualize the mask output on the DAPI channel compared directly to the Nanostring CellSegmentation images.
 
 ## Libraries
+
 from cmath import nan
 import click  ## Pretty Commandline
 import os
 
 from mesmer_segment.mesmer_helper import *  ## import all my functions to do the things
 from mesmer_segment.process_masks import convert_masks
+
 from skimage import io, color  ## to make interpretable plot of segmentation
 from matplotlib import pyplot as plt  ## to show plots not needed in final
 from deepcell.applications import Mesmer  ## The good stuff.
