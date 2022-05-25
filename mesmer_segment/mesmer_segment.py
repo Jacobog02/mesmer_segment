@@ -2,9 +2,14 @@
 ## This script is a callable function which is input with a directory path to nanostring SMI results. Extracts the CellComposite Images for MESMER segmentation. MESMER segmentation masks are written to file for downstream use. Additional plotting functions to visualize the mask output on the DAPI channel compared directly to the Nanostring CellSegmentation images.
 
 ## Libraries
+
+from cmath import nan
 import click  ## Pretty Commandline
-import os  ## To check files, directories
-from .mesmer_helper import *  ## import all my functions to do the things
+import os
+
+from mesmer_segment.mesmer_helper import *  ## import all my functions to do the things
+from mesmer_segment.process_masks import convert_masks
+
 from skimage import io, color  ## to make interpretable plot of segmentation
 from matplotlib import pyplot as plt  ## to show plots not needed in final
 from deepcell.applications import Mesmer  ## The good stuff.
@@ -21,25 +26,41 @@ import numpy as np  ## Image processing
 @click.option(
     "--visual",
     "-v",
+    is_flag=True,
     default=False,
     required=False,
     help="Logical Flag to generate plots of new segmentation compared to default SMI segmentation",
 )
 @click.option(
     "--save-npz",
+    is_flag=True,
     default=False,
     required=False,
     help="Logical Flag to determine way to save segmentation masks",
 )
-def cli(input, visual, save_npz):
+@click.option(
+    "--build-outs",
+    is_flag=True,
+    default=False,
+    required=False,
+    help="Logical Flag to whether to convert segmentation masks into CosMx SMI-like output files",
+)
+@click.option(
+    "--skip-segmentation",
+    is_flag=True,
+    default=False,
+    required=False,
+    help="Logical Flag to whether to run segmentation (if its already been run)",
+)
+def cli(input, visual, save_npz, build_outs, skip_segmentation):
     """
     mesmer_segment: Process SMI CellComposite images for segmentation.\n
     Jacob Gutierrez
     """
-    segment(input, visual, save_npz)
+    segment(input, visual, save_npz, build_outs, skip_segmentation)
 
 
-def segment(input, visual, save_npz):
+def segment(input, visual, save_npz, build_outs, skip_segmentation):
     ## set working dir as input.
     wd = input
 
@@ -55,46 +76,64 @@ def segment(input, visual, save_npz):
     seg_dir = "{}/MesmerSegmentation/".format(wd)
     os.makedirs(seg_dir, exist_ok=True)
 
-    ## We have files now so Spark up Mesmer
-    app = Mesmer()
+    if not skip_segmentation:
+        ## We have files now so Spark up Mesmer
+        app = Mesmer()
 
-    ## Loop over each FOV and create segmentation
-    ## In theory could parallelize across images here depending on MESMER size which I am not pythonic enough to answer
-    ## i is a string...
-    for i, fov in enumerate(all_fovs):
-        click.echo("Processing: {}".format(fov))
-        fov_GB = prepare_composite(all_in_paths[int(i)])
+        ## Loop over each FOV and create segmentation
+        ## In theory could parallelize across images here depending on MESMER size which I am not pythonic enough to answer
+        ## i is a string...
+        for i, fov in enumerate(all_fovs):
+            click.echo("Processing: {}".format(fov))
+            fov_GB = prepare_composite(all_in_paths[int(i)])
 
-        ## this gives an N x M x 2 matrix. Index 0 == Whole-Cell | Index 1 == Nueclear
-        seg_fov = app.predict(
-            fov_GB, compartment="both"
-        )  ## Do the thing! Takes ~80-120 seconds per image
+            ## this gives an N x M x 2 matrix. Index 0 == Whole-Cell | Index 1 == Nueclear
+            seg_fov = app.predict(
+                fov_GB, compartment="both"
+            )  ## Do the thing! Takes ~80-120 seconds per image
 
-        ## Squash the extra batch dim
-        seg_fov = np.squeeze(seg_fov)
+            ## Squash the extra batch dim
+            seg_fov = np.squeeze(seg_fov)
 
-        ## Save whole cell and nuclear masks
-        if save_npz:
-            save_path = "{}/mesmer_{}.npz".format(seg_dir, fov)
-            np.savez_compressed(
-                save_path, wholecell=seg_fov[:, :, (0)], nuclear=seg_fov[:, :, (1)]
-            )
-            # load the masks with:
-            # data = np.load(save_path)
-            # nuclear_mask = data["nuclear"]
-            # wholecell_mask = data["wholecell"]
-        else:
-            ## Save Whole Cell Mask
-            whole_cell_path = "{}/mesmer_whole_cell_{}.csv".format(seg_dir, fov)
-            np.savetxt(whole_cell_path, seg_fov[:, :, (0)], delimiter=",")
+            ## Save whole cell and nuclear masks
+            if save_npz:
+                save_path = "{}/mesmer_{}.npz".format(seg_dir, fov)
+                np.savez_compressed(
+                    save_path, wholecell=seg_fov[:, :, (0)], nuclear=seg_fov[:, :, (1)]
+                )
+                # load the masks with:
+                # data = np.load(save_path)
+                # nuclear_mask = data["nuclear"]
+                # wholecell_mask = data["wholecell"]
+            else:
+                ## Save Whole Cell Mask
+                whole_cell_path = "{}/mesmer_whole_cell_{}.csv".format(seg_dir, fov)
+                np.savetxt(whole_cell_path, seg_fov[:, :, (0)], delimiter=",")
 
-            ## Save Nuclear Mask
-            nuc_path = "{}/mesmer_nucleus_{}.csv".format(seg_dir, fov)
-            np.savetxt(nuc_path, seg_fov[:, :, (1)], delimiter=",")
+                ## Save Nuclear Mask
+                nuc_path = "{}/mesmer_nucleus_{}.csv".format(seg_dir, fov)
+                np.savetxt(nuc_path, seg_fov[:, :, (1)], delimiter=",")
 
-        ## Logical for Visualization
-        if visual:
-            vis_fov(fov, wd, seg_fov)
-            click.echo("VISUALIZATION WRITTEN")
+            ## Logical for Visualization
+            if visual:
+                vis_fov(fov, wd, seg_fov)
+                click.echo("VISUALIZATION WRITTEN")
 
-    click.echo("All FOV's segmented DONE")
+        click.echo("All FOV's segmented DONE")
+
+    ## Convert masks into Nanostring CosMx SMI-like output files
+    if build_outs and save_npz:
+        click.echo("Converting FOV masks to Nanostring CosMx SMI-like output files")
+        ## Create output path
+        output_dir = "{}/mesmer_nanostring_outs/".format(wd)
+        os.makedirs(output_dir, exist_ok=True)
+        convert_masks(
+            nanostring_outs_path=input,
+            mask_directory=seg_dir,
+            output_prefix="mesmer",
+            save_path=output_dir,
+            fovs=None,
+            expand_pixels=12,
+            verbose=True,
+            num_processes=16,
+        )
