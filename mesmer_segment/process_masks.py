@@ -11,7 +11,7 @@ import multiprocessing
 
 
 ### Constants
-TX_FILE_COLNAMES = []
+# TX_FILE_COLNAMES = []
 POLYGONS_FILE_COLNAMES = [
     "fov",
     "cellID",
@@ -20,7 +20,7 @@ POLYGONS_FILE_COLNAMES = [
     "x_global_px",
     "y_global_px",
 ]
-EXPRMAT_FILE_COLNAMES = []
+# EXPRMAT_FILE_COLNAMES = []
 METADATA_FILE_COLNAMES = [
     "fov",
     "cell_ID",
