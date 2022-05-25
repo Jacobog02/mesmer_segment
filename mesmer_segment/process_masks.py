@@ -12,16 +12,23 @@ import multiprocessing
 
 ### Constants
 TX_FILE_COLNAMES = []
-POLYGONS_FILE_COLNAMES = ["fov", "cellID", "x_local_px", "y_local_px", "x_global_px", "y_global_px"]
+POLYGONS_FILE_COLNAMES = [
+    "fov",
+    "cellID",
+    "x_local_px",
+    "y_local_px",
+    "x_global_px",
+    "y_global_px",
+]
 EXPRMAT_FILE_COLNAMES = []
 METADATA_FILE_COLNAMES = [
-        "fov",
-        "cell_ID",
-        "CenterX_local_px",
-        "CenterY_local_px",
-        "CenterX_global_px",
-        "CenterY_global_px"
-    ]
+    "fov",
+    "cell_ID",
+    "CenterX_local_px",
+    "CenterY_local_px",
+    "CenterX_global_px",
+    "CenterY_global_px",
+]
 METADATA_X_GLOBAL = "CenterX_global_px"
 METADATA_Y_GLOBAL = "CenterY_global_px"
 POLYGONS_X_GLOBAL = "x_global_px"
@@ -41,7 +48,7 @@ def convert_masks(
     fovs=None,
     expand_pixels=12,
     verbose=True,
-    num_processes=16
+    num_processes=16,
 ):
     """Rebuild the gene expression matrix, generate segmentation vertices, and reassign each transcripts CellComp attribute.
 
@@ -69,7 +76,7 @@ def convert_masks(
     for file in files:
         if not os.path.exists(file):
             msg = f"{file} does not exist"
-            raise Exception(msg)  
+            raise Exception(msg)
 
     expr_path = os.path.join(save_path, output_prefix + "_expreMat_file.csv")
     tx_path = os.path.join(save_path, output_prefix + "_tx_file.csv")
@@ -77,9 +84,7 @@ def convert_masks(
     metadata_path = os.path.join(save_path, output_prefix + "_metadata_file.csv")
 
     # find compressed masks
-    masks = [
-        x for x in os.listdir(mask_directory) if x.endswith("npz")
-    ]
+    masks = [x for x in os.listdir(mask_directory) if x.endswith("npz")]
     mask_files = dict()
     for mask in masks:
         # get FOV number from filename
@@ -99,7 +104,7 @@ def convert_masks(
         mask_files=mask_files,
         expand_pixels=expand_pixels,
         verbose=verbose,
-        num_processes=num_processes
+        num_processes=num_processes,
     )
 
     # save dfs to csv
@@ -123,7 +128,7 @@ def build_parallel(
     fov_positions_file,
     expand_pixels=12,
     verbose=True,
-    num_processes = 16
+    num_processes=16,
 ):
     """Build an expression matrix from a segmentation mask and generate an updated transcripts file.
 
@@ -148,13 +153,13 @@ def build_parallel(
     tx_map = dict()
     for i, t in enumerate(list(set(txs.target))):
         tx_map[t] = i
-        
+
     # get set of unique genes
     genes = set(txs.target)
 
     # initialize returned dataframes
-    new_txs = pd.DataFrame(columns = txs.columns)
-    new_expr = pd.DataFrame(columns = genes)
+    new_txs = pd.DataFrame(columns=txs.columns)
+    new_expr = pd.DataFrame(columns=genes)
 
     segmentation_vertices = pd.DataFrame(columns=POLYGONS_FILE_COLNAMES)
     metadata_df = pd.DataFrame(columns=METADATA_FILE_COLNAMES)
@@ -163,8 +168,9 @@ def build_parallel(
     start_time = time.perf_counter()
     processes = [
         pool.apply_async(
-            construct_fov_files, args=(txs, fov, mask_files[fov], fov_shifts, )
-        ) for fov in mask_files.keys()
+            construct_fov_files, args=(txs, fov, mask_files[fov], fov_shifts,)
+        )
+        for fov in mask_files.keys()
     ]
     results = [p.get() for p in processes]
     finish_time = time.perf_counter()
@@ -176,30 +182,27 @@ def build_parallel(
         new_expr = pd.concat([new_expr, result["expression_matrix"]])
 
         # get polygon vertices
-        segmentation_vertices = pd.concat([segmentation_vertices, result["segmentation_vertices"]])
+        segmentation_vertices = pd.concat(
+            [segmentation_vertices, result["segmentation_vertices"]]
+        )
         metadata_df = pd.concat([metadata_df, result["metadata"]])
 
     return {
         "transcripts": new_txs,
         "expression_matrix": new_expr,
         "segmentation_vertices": segmentation_vertices,
-        "metadata": metadata_df
+        "metadata": metadata_df,
     }
 
 
 def construct_fov_files(
-    txs,
-    fov,
-    mask_file,
-    fov_shifts,
-    expand_pixels=12,
-    verbose=True
+    txs, fov, mask_file, fov_shifts, expand_pixels=12, verbose=True
 ):
     # map each transcript to an index
     tx_map = dict()
     for i, t in enumerate(list(set(txs.target))):
         tx_map[t] = i
-        
+
     # get set of unique genes
     genes = set(txs.target)
 
@@ -248,12 +251,12 @@ def construct_fov_files(
     # replace CellComp column with updated CellComp reflecting mesmer segmentations
     txs_subset["CellComp"] = cellcomp
     txs_subset[CELL_ID] = cell_id
-    txs_subset[CELL_ID] =  txs_subset[CELL_ID].astype(int)
+    txs_subset[CELL_ID] = txs_subset[CELL_ID].astype(int)
 
     # convert expression array to dataframe
-    cell_ids = [int(i+1) for i in range(n_cells)]
+    cell_ids = [int(i + 1) for i in range(n_cells)]
     matrix = pd.DataFrame(exp_mtx, columns=genes)
-    
+
     # add cell_ID and fov columns to the matrix
     matrix[CELL_ID] = cell_ids
     matrix[CELL_ID] = matrix[CELL_ID].astype(int)
@@ -280,7 +283,7 @@ def construct_fov_files(
         "expression_matrix": matrix,
         "transcripts": txs_subset,
         "segmentation_vertices": vertice_files["segmentations_df"],
-        "metadata": vertice_files["metadata_df"]
+        "metadata": vertice_files["metadata_df"],
     }
 
 
@@ -294,10 +297,7 @@ def get_fov_shifts(fov_positions_file):
     for line in lines[1:]:
         line = line.strip()
         vals = line.split(",")
-        shifts[int(vals[0])] = {
-            "x": float(vals[1]),
-            "y": float(vals[2])
-        }
+        shifts[int(vals[0])] = {"x": float(vals[1]), "y": float(vals[2])}
     return shifts
 
 
@@ -306,9 +306,16 @@ def get_metadata_df(fov, boundary_dict):
     for k in boundary_dict.keys():
         v = boundary_dict[k]
         x, y = np.average(v, axis=0)
-        metadata_df.loc[len(metadata_df.index)] = [int(fov), k, y, -x + FOV_SIZE_X, y, -x + FOV_SIZE_X]
-    metadata_df[FOV]=metadata_df[FOV].astype(int)
-    metadata_df[CELL_ID]=metadata_df[CELL_ID].astype(int)
+        metadata_df.loc[len(metadata_df.index)] = [
+            int(fov),
+            k,
+            y,
+            -x + FOV_SIZE_X,
+            y,
+            -x + FOV_SIZE_X,
+        ]
+    metadata_df[FOV] = metadata_df[FOV].astype(int)
+    metadata_df[CELL_ID] = metadata_df[CELL_ID].astype(int)
     return metadata_df
 
 
@@ -320,14 +327,14 @@ def get_polygon_vertices(fov, expanded, num_vertices=30):
     """
 
     # find the boundaries of each segmentation
-    boundaries = find_boundaries(expanded, mode='inner')
+    boundaries = find_boundaries(expanded, mode="inner")
 
     # create empty lists for each cell to store segmentations vertices
     u = np.unique(expanded)
     boundary_dict = {}
     for v in u[1:]:
         boundary_dict[v] = []
-        
+
     assert expanded.shape == boundaries.shape
     for r in range(expanded.shape[0]):
         for c in range(expanded.shape[1]):
@@ -342,7 +349,9 @@ def get_polygon_vertices(fov, expanded, num_vertices=30):
     # randomly sample vertices if cell has more than num_vertices vertices describing it
     for v in boundary_dict.keys():
         d = boundary_dict[v]
-        if len(d) < 4: # monitor if there are any segmentations with an oddly low number of vertices
+        if (
+            len(d) < 4
+        ):  # monitor if there are any segmentations with an oddly low number of vertices
             print(v)
         elif len(d) > num_vertices:
             boundary_dict[v] = random.sample(d, num_vertices)
@@ -356,10 +365,14 @@ def get_polygon_vertices(fov, expanded, num_vertices=30):
         for x, y in boundary_dict[k]:
             # this is where we need to sort the vertices
             # x and y are intentionally flipped here
-            series_list.append(pd.Series([fov, k, y, -x + 3638, y, -x + 3638], index=POLYGONS_FILE_COLNAMES))
-            
+            series_list.append(
+                pd.Series(
+                    [fov, k, y, -x + 3638, y, -x + 3638], index=POLYGONS_FILE_COLNAMES
+                )
+            )
+
         cur_seg_df = pd.DataFrame(series_list)
-        
+
         pts = cur_seg_df[[POLYGONS_X_LOCAL, POLYGONS_Y_LOCAL]]
         neighbors = np.zeros((pts.shape[0], pts.shape[0]))
         for idx1, row1 in pts.iterrows():
@@ -367,14 +380,19 @@ def get_polygon_vertices(fov, expanded, num_vertices=30):
                 if idx1 == idx2:
                     neighbors[idx1, idx2] = 100000
                 else:
-                    d = np.sqrt((row1[POLYGONS_X_LOCAL] - row2[POLYGONS_X_LOCAL])**2 + (row1[POLYGONS_Y_LOCAL] - row2[POLYGONS_Y_LOCAL])**2)
+                    d = np.sqrt(
+                        (row1[POLYGONS_X_LOCAL] - row2[POLYGONS_X_LOCAL]) ** 2
+                        + (row1[POLYGONS_Y_LOCAL] - row2[POLYGONS_Y_LOCAL]) ** 2
+                    )
                     neighbors[idx1, idx2] = d
 
         order = [0]
         mask = [100000] + [1] * (pts.shape[0] - 1)
         current = 0
         for _ in range(pts.shape[0] - 1):
-            val, idx = min((val, idx) for (idx, val) in enumerate(neighbors[current, :] * mask))
+            val, idx = min(
+                (val, idx) for (idx, val) in enumerate(neighbors[current, :] * mask)
+            )
             mask[idx] *= 10000
             order.append(idx)
             current = idx
@@ -383,10 +401,7 @@ def get_polygon_vertices(fov, expanded, num_vertices=30):
         segmentations_df = pd.concat([segmentations_df, cur_seg_df])
     segmentations_df.columns = POLYGONS_FILE_COLNAMES
 
-    return {
-       "segmentations_df": segmentations_df,
-       "metadata_df": metadata_df
-    }
+    return {"segmentations_df": segmentations_df, "metadata_df": metadata_df}
 
 
 if __name__ == "__main__":
@@ -396,5 +411,5 @@ if __name__ == "__main__":
         "/brahms/hartmana/mesmer/lung5_rep1/Lung5_Rep1/Lung5_Rep1-Flat_files_and_images/MesmerSegmentation",
         "test_outs",
         "/brahms/hartmana/mesmer/testing/test_output_directory",
-        fovs=[1,3],
+        fovs=[1, 3],
     )

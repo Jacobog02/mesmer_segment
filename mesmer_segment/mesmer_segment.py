@@ -133,5 +133,5 @@ def segment(input, visual, save_npz, build_outs, skip_segmentation):
             fovs=None,
             expand_pixels=12,
             verbose=True,
-            num_processes=16
+            num_processes=16,
         )
