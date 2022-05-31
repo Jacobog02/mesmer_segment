@@ -110,18 +110,21 @@ def vis_fov(an_fov,wd,mesm_segs):
     return()
 
    
-# wd (path to smi dir), seg_files (iter of paths to segmentation, .csv or .npz), seg_type ('wholecell' or 'nuclear' for seg.npz)
-def assign_molecules(wd, seg_files, seg_type='wholecell'):
+# wd (path to smi dir)
+# seg_files (iter of paths to segmentation, .csv or .npz)
+# seg_type ('wholecell' or 'nuclear' for seg.npz)
+# return_dict (bool; return results as dictionary instead of writing to disk) 
+def assign_molecules(wd, seg_files, seg_type='wholecell', return_dict=False):
     assert seg_type in ('wholecell', 'nuclear'), click.echo('seg_type must be wholecell or nuclear')
     
     sample_name = os.path.basename(wd)
-    tx_file = os.path.join(wd, f'{sample_name}_tx_file.csv')
     
     # load molecules
+    tx_file = os.path.join(wd, f'{sample_name}_tx_file.csv')
     tx = pd.read_csv(tx_file)
     
     # load segmentations
-    fovs, segs = [], []
+    counts_dict = {}
     for f in seg_files:
         if not os.path.exists(f):
             click.echo(f'{f} not found, skipping')
@@ -145,8 +148,13 @@ def assign_molecules(wd, seg_files, seg_type='wholecell'):
         counts = local.groupby(['mesmer_cell_ID', 'target']).size().reset_index() ## count molecules
         counts = counts.pivot(index='mesmer_cell_ID', columns='target', values=0) ## pivot into matrix
         counts = counts.replace(np.nan, 0).astype(int).reset_index()
-        counts.to_csv(os.path.join(wd, f'{sample_name}_{fov}_mesmer_counts.csv'), index=False)
-        
+        if return_dict:
+            counts_dict[os.path.basename(f)] = counts
+        else:
+            counts.to_csv(os.path.join(wd, f'{sample_name}_{fov}_mesmer_counts.csv'), index=False)
+    
+    if return_dict:
+        return counts_dict
     
     
     
