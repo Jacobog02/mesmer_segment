@@ -137,6 +137,7 @@ def assign_molecules(wd, seg_files, seg_type='wholecell'):
             seg = np.loadtxt(f)
         else:
             click.echo('Segmentation file extension not recognized')
+            continue
     
         # make counts matrix
         xcoord, ycoord = local[['x_local_px', 'y_local_px']].round().astype(int).values.T
