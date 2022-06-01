@@ -5,6 +5,7 @@ import os ## To check files, directories
 from  skimage import io, color ## to make interpretable plot of segmentation
 from matplotlib import pyplot as plt ## to show plots not needed in final
 import numpy as np ## Image processing
+import pandas as pd ## Read text files
 from pkg_resources import get_distribution
 import pkg_resources
 
@@ -108,8 +109,52 @@ def vis_fov(an_fov,wd,mesm_segs):
     
     return()
 
+   
+# wd (path to smi dir)
+# seg_files (iter of paths to segmentation, .csv or .npz)
+# seg_type ('wholecell' or 'nuclear' for seg.npz)
+# return_dict (bool; return results as dictionary instead of writing to disk) 
+def assign_molecules(wd, seg_files, seg_type='wholecell', return_dict=False):
+    assert seg_type in ('wholecell', 'nuclear'), click.echo('seg_type must be wholecell or nuclear')
     
+    sample_name = os.path.basename(wd)
     
+    # load molecules
+    tx_file = os.path.join(wd, f'{sample_name}_tx_file.csv')
+    tx = pd.read_csv(tx_file)
+    
+    # load segmentations
+    counts_dict = {}
+    for f in seg_files:
+        if not os.path.exists(f):
+            click.echo(f'{f} not found, skipping')
+            continue
+            
+        fov = os.path.splitext(f)[0].split('_')[-1]
+        fov_int = int(fov[1:]) ## remove the leading F char
+        local = tx[tx['fov'] == fov_int].copy()
+        
+        if f.endswith('.npz'):
+            seg = np.load(f)[seg_type]
+        elif f.endswith('.csv'):
+            seg = np.loadtxt(f)
+        else:
+            click.echo('Segmentation file extension not recognized')
+            continue
+    
+        # make counts matrix
+        xcoord, ycoord = local[['x_local_px', 'y_local_px']].round().astype(int).values.T
+        local['mesmer_cell_ID'] = seg[ycoord, xcoord]
+        counts = local.groupby(['mesmer_cell_ID', 'target']).size().reset_index() ## count molecules
+        counts = counts.pivot(index='mesmer_cell_ID', columns='target', values=0) ## pivot into matrix
+        counts = counts.replace(np.nan, 0).astype(int).reset_index()
+        if return_dict:
+            counts_dict[os.path.basename(f)] = counts
+        else:
+            counts.to_csv(os.path.join(wd, f'{sample_name}_{fov}_mesmer_counts.csv'), index=False)
+    
+    if return_dict:
+        return counts_dict
     
     
     
