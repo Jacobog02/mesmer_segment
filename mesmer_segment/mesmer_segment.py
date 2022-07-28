@@ -31,13 +31,13 @@ import numpy as np  ## Image processing
     required=False,
     help="Logical Flag to generate plots of new segmentation compared to default SMI segmentation",
 )
-@click.option(
-    "--save-npz",
-    is_flag=True,
-    default=False,
-    required=False,
-    help="Logical Flag to determine way to save segmentation masks",
-)
+# @click.option(
+#     "--save-npz",
+#     is_flag=True,
+#     default=False,
+#     required=False,
+#     help="Logical Flag to determine way to save segmentation masks",
+# )
 @click.option(
     "--build-outs",
     is_flag=True,
@@ -52,15 +52,73 @@ import numpy as np  ## Image processing
     required=False,
     help="Logical Flag to whether to run segmentation (if its already been run)",
 )
-def cli(input, visual, save_npz, build_outs, skip_segmentation):
+def cli(input, visual, build_outs, skip_segmentation):
     """
     mesmer_segment: Process SMI CellComposite images for segmentation.\n
     Jacob Gutierrez
     """
-    segment(input, visual, save_npz, build_outs, skip_segmentation)
+    #segment(input, visual, save_npz, build_outs, skip_segmentation)
+    segment(input, visual, build_outs, skip_segmentation) ## For TIFF input 
 
 
-def segment(input, visual, save_npz, build_outs, skip_segmentation):
+## JG 7/27/22: Forcing input as TIF images. 
+def segment(input, visual, build_outs, skip_segmentation):
+
+    ## set working dir as input.
+    wd = input
+
+    ## Check if directory valid and return input cellcomposite paths for analysis
+    check_smi_dirs(input) ## stops if the structure is incorrect
+
+    
+    ## Create output path
+    seg_dir = "{}/MesmerSegmentation/".format(wd)
+    os.makedirs(seg_dir, exist_ok=True)
+    
+    
+    
+    ## Process TIF input
+    ## NOTE: the way this function works requires the base directory to be named the exact sample name following a common naming convention.
+    input_np = process_tif(wd, seg_dir)
+
+    if not skip_segmentation:
+          ## We have files now so Spark up Mesmer
+          app = Mesmer()
+    
+          ## Run Mesmer 
+          ## Updated to write both nuclear and membrane 
+          run_mesmer(input_np, seg_dir,mes_app = app,image_mpp=0.18,maxima_threshold = .3,interior_threshold=.8) ## update to npz compressed & for both nuclear + whole cell 
+          click.echo("All FOV's segmented DONE")
+
+    
+## Logical for Visualization
+    if visual:
+       ## Evaluate over list and directly write results
+       vis_wrapper(wd,title = os.path.basename(wd.rstrip('/')),parallel = True)
+
+       #vis_fov(fov, wd, seg_fov)
+       click.echo("VISUALIZATION WRITTEN")    
+    
+     
+    ## Convert masks into Nanostring CosMx SMI-like output files
+    if build_outs:
+        click.echo("Converting FOV masks to Nanostring CosMx SMI-like output files")
+        ## Create output path
+        output_dir = "{}/mesmer_nanostring_outs/".format(wd)
+        os.makedirs(output_dir, exist_ok=True)
+        convert_masks(
+            nanostring_outs_path=input,
+            mask_directory=seg_dir,
+            output_prefix="mesmer",
+            save_path=output_dir,
+            fovs=None,
+            expand_pixels=0,
+            verbose=True,
+            num_processes=16,
+        )
+
+
+def segment_OLD(input, visual, save_npz, build_outs, skip_segmentation):
     ## set working dir as input.
     wd = input
 

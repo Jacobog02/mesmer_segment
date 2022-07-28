@@ -88,7 +88,11 @@ def convert_masks(
     mask_files = dict()
     for mask in masks:
         # get FOV number from filename
-        mask_number = int(mask[-6:-4])
+        #mask_number = int(mask[-6:-4])
+        
+        ## Updating for new format
+        mask_number = int(mask[1:4])
+
         if fovs:
             if mask_number in fovs:
                 mask_files[mask_number] = os.path.join(mask_directory, mask)

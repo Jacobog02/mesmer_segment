@@ -69,3 +69,8 @@ coords <- subset(x = coords, cells = cells)
 # Add coords as an Image with name `SMI`
 obj[['SMI']] <- coords
 ```
+
+# Updates
+
+7/20/21: 
+- Updating segmentation input to process TIFF files from the `RawMorphologyImages/` directory.
