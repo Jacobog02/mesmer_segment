@@ -3,7 +3,7 @@
 Purpose of this package is to apply mesmer segmentation to SMI CellComposite images and use those segmentations to recompute downstream outputs like expression matrices.
 
 
-# INSTALL
+# Install
 
 This package hasnt been uploaded to pip current (as of 5/5/22) 
 
@@ -32,6 +32,11 @@ pip install . ## Install the package
 
 mesmer_segment --help ## Yields help screen from onfly compliation
 
+```
+
+In order to segment and visualize cell overlapys use the following command: 
+```
+mesmer_segment -i /path/to/outs/ -v 
 ```
 
 In order to both segment and generate an expression matrix, polygon vertices, etc. use the following command:
@@ -74,3 +79,6 @@ obj[['SMI']] <- coords
 
 7/20/21: 
 - Updating segmentation input to process TIFF files from the `RawMorphologyImages/` directory.
+- Mesmer function now accepts multiple parameters to the model for segmentation and overlap .jpg images to evaluate performance. 
+- Mesmer run in compartment = "both" mode as standard, downstream functions would explode with variable input currently. 
+- DEPRECIATED: '--save-npz' parameter, the function will always write mesmer output in compressed format as a standard.  
