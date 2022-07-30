@@ -87,10 +87,11 @@ def segment(input, visual, build_outs, skip_segmentation):
     
           ## Run Mesmer 
           ## Updated to write both nuclear and membrane 
-          run_mesmer(input_np, seg_dir,mes_app = app,image_mpp=0.18,maxima_threshold = .3,interior_threshold=.8) ## update to npz compressed & for both nuclear + whole cell 
+          whole_param = {"maxima_threshold": .3,"interior_threshold":.6}
+          nuc_param = {"maxima_threshold" : .3,"interior_threshold":.8}
+          run_mesmer(input_np, seg_dir,mes_app = app,image_mpp=0.18,whole_param = whole_param, nuc_param = nuc_param) ## update to npz compressed & for both nuclear + whole cell 
           click.echo("All FOV's segmented DONE")
 
-    
 ## Logical for Visualization
     if visual:
        ## Evaluate over list and directly write results

@@ -7,7 +7,14 @@ from skimage.segmentation import expand_labels, find_boundaries
 import random
 import os
 import time
-import multiprocessing
+import sys
+
+
+# Attempting to use multiprocess instead of multiprocessing using pip install on the mesmer environment
+#import multiprocessing
+import multiprocess
+import multiprocess as mp 
+from multiprocess import Pool
 
 
 ### Constants
@@ -78,13 +85,14 @@ def convert_masks(
             msg = f"{file} does not exist"
             raise Exception(msg)
 
-    expr_path = os.path.join(save_path, output_prefix + "_expreMat_file.csv")
+    expr_path = os.path.join(save_path, output_prefix + "_exprMat_file.csv")
     tx_path = os.path.join(save_path, output_prefix + "_tx_file.csv")
     polygons_path = os.path.join(save_path, output_prefix + "_polygons_file.csv")
     metadata_path = os.path.join(save_path, output_prefix + "_metadata_file.csv")
 
     # find compressed masks
     masks = [x for x in os.listdir(mask_directory) if x.endswith("npz")]
+    masks.sort()
     mask_files = dict()
     for mask in masks:
         # get FOV number from filename
@@ -93,6 +101,7 @@ def convert_masks(
         ## Updating for new format
         mask_number = int(mask[1:4])
 
+        print(mask_number)
         if fovs:
             if mask_number in fovs:
                 mask_files[mask_number] = os.path.join(mask_directory, mask)
@@ -100,6 +109,7 @@ def convert_masks(
             mask_files[mask_number] = os.path.join(mask_directory, mask)
     if verbose:
         print(mask_files)
+        
 
     # construct outputs in parallel by FOV
     results = build_parallel(
@@ -151,12 +161,26 @@ def build_parallel(
             }
     """
     txs = pd.read_csv(tx_file)
-    fov_shifts = get_fov_shifts(fov_positions_file=fov_positions_file)
+    #print(txs)
+    
+    use_fovs = list(set(txs.fov))
+    
+    if verbose:
+      n_rna = len(use_fovs)
+      n_seg = len(mask_files.keys())
 
+      print("{} FOV's assayed for RNA, {} FOVs imaged and segmented. Using {} FOV's".format(n_rna,n_seg,min([n_rna,n_seg]) ))
+
+    ## read in shifts
+    fov_shifts = get_fov_shifts(fov_positions_file=fov_positions_file) ## this has ALL FOV's included sometimes they dont 
+
+
+    
+    ## I dont think this is needed? 
     # map each transcript to an index
-    tx_map = dict()
-    for i, t in enumerate(list(set(txs.target))):
-        tx_map[t] = i
+    # tx_map = dict()
+    # for i, t in enumerate(list(set(txs.target))):
+    #     tx_map[t] = i
 
     # get set of unique genes
     genes = set(txs.target)
@@ -168,17 +192,45 @@ def build_parallel(
     segmentation_vertices = pd.DataFrame(columns=POLYGONS_FILE_COLNAMES)
     metadata_df = pd.DataFrame(columns=METADATA_FILE_COLNAMES)
 
-    pool = multiprocessing.Pool(num_processes)
-    start_time = time.perf_counter()
-    processes = [
-        pool.apply_async(
-            construct_fov_files, args=(txs, fov, mask_files[fov], fov_shifts,)
-        )
-        for fov in mask_files.keys()
-    ]
-    results = [p.get() for p in processes]
-    finish_time = time.perf_counter()
-    print(f"Program finished in {finish_time-start_time} seconds")
+
+    ## JG: preslicing datasets into a dict for minimal data passing
+    #dictionary = {key: value for vars in iterable}
+    txs_subsets = {fov: txs[txs.fov == fov].copy() for fov in use_fovs}
+
+    ## Updating parallel with handler to do basic fixin'
+    ## https://stackoverflow.com/questions/70961736/why-is-this-multiprocessing-pool-stuck
+    #multiprocessing.set_start_method('fork',force=True) ## doesnt work fml
+    #pool_arg_list = [(txs, fov, mask_files[fov], fov_shifts,) for fov in mask_files.keys()]
+    pool_arg_list = [(txs_subsets[fov], fov, mask_files[fov], fov_shifts[fov],) for fov in use_fovs]
+
+    ## for this print remeber python is 0 indexed but we start with 1 fov.
+    #print(["FOV: {}\t nRNAs: {}".format( i+1 , len(pool_arg_list[i][0])) for i in range(len(pool_arg_list))] ) 
+    
+    with Pool(processes=num_processes) as pool:
+    #pool = multiprocessing.Pool(num_processes)
+        start_time = time.perf_counter()
+        # processes = [
+        #     pool.apply_async(
+        #         construct_fov_files, args=(txs, fov, mask_files[fov], fov_shifts,)
+        #     )
+        #     for fov in mask_files.keys()
+        # ]
+        # results = [p.get() for p in processes]
+        
+        ## try 2 with starmap...
+        results = pool.starmap(construct_fov_files,pool_arg_list ) ## This still stalls sending the matrices back into a list of tuples 
+        
+        ## try 3 with writing results to pickle then loading in each pickle for the Concat below
+        
+        finish_time = time.perf_counter()
+        print(f"Program finished in {finish_time-start_time} seconds")
+        
+        
+        
+    ## Sad way one by one 
+    #results = [ construct_fov_files(txs, fov, mask_files[fov], fov_shifts[fov],) for fov in use_fovs]
+
+        
     print("Concatenating results...")
     for result in results:
         # append the updated transcripts and expression for current FOV
@@ -200,20 +252,32 @@ def build_parallel(
 
 
 def construct_fov_files(
-    txs, fov, mask_file, fov_shifts, expand_pixels=12, verbose=True
+    txs, fov, mask_file, shift, expand_pixels=12, verbose=True
 ):
-    # map each transcript to an index
-    tx_map = dict()
-    for i, t in enumerate(list(set(txs.target))):
-        tx_map[t] = i
-
-    # get set of unique genes
-    genes = set(txs.target)
+    # # map each transcript to an index
+    # tx_map = dict()
+    # for i, t in enumerate(list(set(txs.target))):
+    #     tx_map[t] = i
+    # 
+    # # get set of unique genes
+    # genes = set(txs.target)
 
     print(f"Building the expression matrix for FOV {fov}.")
     if verbose:
         start = time.time()
-    txs_subset = txs[txs.fov == fov].copy()
+    
+    ## Updated to send the subset txs within arguments directly passing shards. 
+    #txs_subset = txs[txs.fov == fov].copy()
+    txs_subset = txs
+    
+    ## Trying to make it use only the subset to pass along the pre sliced dataframe 
+    # map each transcript to an index
+    tx_map = dict()
+    for i, t in enumerate(list(set(txs_subset.target))):
+        tx_map[t] = i
+
+    # get set of unique genes
+    genes = set(txs_subset.target)
 
     # check file extension and read masks into np.ndarrays
     if mask_file.endswith("npz"):
@@ -271,7 +335,7 @@ def construct_fov_files(
     vertice_files = get_polygon_vertices(fov, mask)
 
     # shift global coordinates
-    shift = fov_shifts[fov]
+    #shift = fov_shifts[fov] Passing shifts directly 
     x_shift = shift["x"]
     y_shift = shift["y"]
 

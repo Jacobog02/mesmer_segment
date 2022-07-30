@@ -249,7 +249,15 @@ def process_tif(basedir, outdir):
         
 
 ## https://github.com/vanvalenlab/deepcell-tf/blob/master/notebooks/applications/Mesmer-Application.ipynb        
-def run_mesmer(infiles, outdir, mes_app,n_batches=2, image_mpp=0.18, compart = "both",maxima_threshold = 0.8,interior_threshold = 0.5):
+## Updated to have independent wholecell/nuclear parameters : dictionary {"maxima_threshold": .3,"interior_threshold":.8}
+def run_mesmer(infiles, outdir, mes_app,n_batches=2, image_mpp=0.18, compart = "both", both_params = ({"maxima_threshold": .3,"interior_threshold":.8}), whole_param = False,nuc_param=False):
+    
+    ## Evaluate mesmer params here
+    ## Check if the extra params exist if they dont then do both lol 
+    if whole_param and nuc_param is False:
+      whole_param = both_params
+      nuc_param = both_params
+    
     # infiles
     stack = []
     for f in natsorted(infiles):
@@ -264,7 +272,7 @@ def run_mesmer(infiles, outdir, mes_app,n_batches=2, image_mpp=0.18, compart = "
     for i in tqdm(range(1, n_batches+1), desc='batch'):
         idx = np.where(batches == i)[0]
 
-        pred = mes_app.predict(data[idx, ...], image_mpp=image_mpp,compartment=compart,postprocess_kwargs_whole_cell={'maxima_threshold': maxima_threshold, 'interior_threshold': interior_threshold },postprocess_kwargs_nuclear={'maxima_threshold': maxima_threshold, 'interior_threshold': interior_threshold })
+        pred = mes_app.predict(data[idx, ...], image_mpp=image_mpp,compartment=compart,postprocess_kwargs_whole_cell=whole_param,postprocess_kwargs_nuclear=nuc_param)
         
         # save results
         for ii, j in enumerate(idx):
